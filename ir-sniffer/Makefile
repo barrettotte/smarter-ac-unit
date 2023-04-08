@@ -1,13 +1,13 @@
 PIO := platformio
-BOARD := nanoatmega328
+PIO_ENV := nano
 
 all:	build
 
 build:	clean
-	$(PIO) run --environment $(BOARD)
+	$(PIO) run --environment $(PIO_ENV)
 
 upload:	build
-	$(PIO) run --target upload --environment $(BOARD)
+	$(PIO) run --target upload --environment $(PIO_ENV)
 	$(PIO) device monitor
 
 get_serial:
