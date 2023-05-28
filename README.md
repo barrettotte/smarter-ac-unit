@@ -6,9 +6,9 @@ Making my AC unit a little smarter
 
 TODO:
 
-## IR Sniffer
+## IR Code Decoding
 
-TODO:
+TODO: add from docs/notes.md when finalized
 
 ## References
 
