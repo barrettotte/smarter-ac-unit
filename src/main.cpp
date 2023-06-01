@@ -1,26 +1,89 @@
-#include <WiFiManager.h>
+#include <ESP8266WiFi.h>
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
+#include <PubSubClient.h>
 
-#define WIFI_TRIGGER_PIN D1   // pin to trigger wifi config portal
-#define IR_LED_PIN D2         // IR LED transmit pin
-#define WIFI_PORTAL_SECS 300  // max wifi portal time
+#include <config.h>
+
+#define AC_MODEL 0x8306
+
+enum AcCommand {
+    CMD_TEMP_CHANGE = 0x02,
+    CMD_PWR_TOGGLE = 0x25
+};
+
+enum FanSpeed {
+    SPEED_LOW = 1,
+    SPEED_HIGH = 3
+};
+
+enum FanMode {
+    MODE_COOL = 2,
+    MODE_DRY = 3,
+    MODE_FAN = 4
+};
+
+struct AcConfig {
+    FanSpeed speed;     // low=0, high=1
+    bool power;          // power off/on
+    AcCommand command;   // AC command
+    uint8_t temperature; // temperature (F)
+};
 
 /** globals ***/
 
-WiFiManager wifiManager;
+WiFiClient wifiClient;
+PubSubClient mqttClient(wifiClient);
 IRsend irSend(IR_LED_PIN);
 
 /*** utils ***/
 
-void handleWifiReconfigure() {
-    if (!wifiManager.startConfigPortal("smarter-ac-unit", "0xDEADBEEF")) {
-        Serial.println("Failed to connect to WiFi.");
-        delay(3000);
-        ESP.restart();
-        delay(5000);
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
+    // TODO: listen for messages on: power, fan speed, temperature
+    // parse json
+    // update config struct
+
+    Serial.print("Message arrived on topic: ");
+    Serial.println(topic);
+    Serial.print("Message: ");
+
+    for (unsigned int i = 0; i < length; i++) {
+        Serial.print((char) payload[i]);
     }
-    Serial.println("Connected to WiFi.");
+    Serial.println();
+}
+
+void mqttReconnect() {
+    while (!mqttClient.connected()) {
+        Serial.print("Connecting to MQTT...");
+
+        String clientId = MQTT_CLIENT_ID;
+        clientId += "-" + String(WiFi.macAddress());
+
+        if (!mqttClient.connect(clientId.c_str(), MQTT_USER, MQTT_PASSWORD)) {
+            Serial.print("Failed to connect to MQTT. rc=");
+            Serial.println(mqttClient.state());
+            Serial.println("Retrying in 5 seconds...");
+            delay(5000);
+        }
+    }
+    Serial.println("Connected to MQTT!");
+    mqttClient.subscribe(MQTT_TOPIC_CONTROL);
+}
+
+void mqttDiscover() {
+    char mqttPayload[256];
+    sprintf(mqttPayload, MQTT_PAYLOAD_DISCOVER, HA_NAME, MQTT_CLIENT_ID, AC_TEMP_MIN, AC_TEMP_MAX, 
+        MQTT_TOPIC_CONTROL, MQTT_TOPIC_STATE);
+    mqttClient.publish(MQTT_TOPIC_HA_DISCOVER, mqttPayload);
+}
+
+void mqttPublish() {
+    // {
+    //     "power": "off",
+    //     "fan_speed": "high",
+    //     "temperature": 70
+    // }
 }
 
 /*** main ***/
@@ -43,12 +106,30 @@ void setup() {
 
     // init wifi
     WiFi.mode(WIFI_STA); // esp defaults to STA+AP
-    wifiManager.setConfigPortalTimeout(WIFI_PORTAL_SECS);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+    Serial.print("Connecting to Wi-Fi");
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.print("\nIP address: ");
+    Serial.println(WiFi.localIP());
 
     // init infrared LED
     irSend.begin();
 
-    Serial.println("\nSetup done.");
+    // init MQTT client
+    mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
+    mqttClient.setCallback(mqttCallback);
+    mqttClient.setKeepAlive(60);
+    mqttClient.setSocketTimeout(10);
+    // mqttReconnect();
+
+    // home assistant discover
+    // mqttDiscover();
+
+    Serial.println("Setup done.");
 }
 
 // 0x830601A20000C000000000000063001100803800A9 (168 bits)
@@ -59,11 +140,15 @@ uint8_t data[21] = {
 };
 
 void loop() {
-    if (digitalRead(WIFI_TRIGGER_PIN) == LOW) {
-        handleWifiReconfigure();
+    if (!mqttClient.connected()) {
+        mqttReconnect();
+    } else {
+        // TODO: publish timer
+        // mqttPublish();
     }
+    mqttClient.loop();
 
-    irSend.sendWhirlpoolAC(data, 21);
-    Serial.println("Sent infrared signal");
-    delay(2000);
+    // irSend.sendWhirlpoolAC(data, 21);
+    delay(1000);
+    // TODO: delay(50);
 }
