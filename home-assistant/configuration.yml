@@ -22,9 +22,3 @@ mqtt:
       fan_mode_state_topic: "smarter_ac_unit/fan/state"
       temperature_command_topic: "smarter_ac_unit/temperature/set"
       temperature_state_topic: "smarter_ac_unit/temperature/state"
-
-  birth_message:
-    topic: homeassistant/status
-    payload: online
-  throttle_publish:
-    max_messages_per_second: 1
