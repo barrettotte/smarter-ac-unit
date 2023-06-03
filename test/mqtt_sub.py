@@ -5,7 +5,8 @@ broker = 'giza.agartha'
 port = 1883
 ttl = 60
 client_id = f'test-mqtt={random.randint(0, 1000)}'
-topic = 'smarter-ac-unit/control'
+# topic = 'smarter_ac_unit/temperature/set'
+topic = 'homeassistant/climate/smarter-ac-unit/config'
 
 def connect_mqtt() -> mqtt:
     def on_connect(client, userdata, flags, rc):

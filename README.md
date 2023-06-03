@@ -15,3 +15,4 @@ TODO: add from docs/notes.md when finalized
 ## References
 
 - https://github.com/Arduino-IRremote/Arduino-IRremote
+- https://www.home-assistant.io/integrations/climate.mqtt/

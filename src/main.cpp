@@ -5,29 +5,12 @@
 
 #include <config.h>
 
-#define AC_MODEL 0x8306
+#define MQTT_MAX_PACKET_SIZE 2048 // redefined from 256 in PubSubClient
 
-enum AcCommand {
-    CMD_TEMP_CHANGE = 0x02,
-    CMD_PWR_TOGGLE = 0x25
-};
-
-enum FanSpeed {
-    SPEED_LOW = 1,
-    SPEED_HIGH = 3
-};
-
-enum FanMode {
-    MODE_COOL = 2,
-    MODE_DRY = 3,
-    MODE_FAN = 4
-};
-
-struct AcConfig {
-    FanSpeed speed;     // low=0, high=1
-    bool power;          // power off/on
-    AcCommand command;   // AC command
-    uint8_t temperature; // temperature (F)
+struct AcState {
+    bool mode;  // 0=off, 1=cool
+    bool speed; // 0=low, 1=high
+    uint8_t temperature;
 };
 
 /** globals ***/
@@ -39,14 +22,13 @@ IRsend irSend(IR_LED_PIN);
 /*** utils ***/
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
-    // TODO: listen for messages on: power, fan speed, temperature
-    // parse json
-    // update config struct
-
     Serial.print("Message arrived on topic: ");
     Serial.println(topic);
-    Serial.print("Message: ");
 
+    // TODO: strcmp topics, else log warning
+    // TODO: extract message and set AC state
+
+    Serial.print("Message: ");
     for (unsigned int i = 0; i < length; i++) {
         Serial.print((char) payload[i]);
     }
@@ -54,37 +36,50 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 }
 
 void mqttReconnect() {
-    while (!mqttClient.connected()) {
-        Serial.print("Connecting to MQTT...");
+    String clientId = MQTT_BASE_CLIENT_ID;
+    clientId += "-" + String(WiFi.macAddress());
 
-        String clientId = MQTT_CLIENT_ID;
-        clientId += "-" + String(WiFi.macAddress());
+    while (!mqttClient.connected()) {
+        Serial.print("Connecting to MQTT broker...");
 
         if (!mqttClient.connect(clientId.c_str(), MQTT_USER, MQTT_PASSWORD)) {
-            Serial.print("Failed to connect to MQTT. rc=");
-            Serial.println(mqttClient.state());
-            Serial.println("Retrying in 5 seconds...");
+            Serial.printf("Failed to connect to MQTT broker. rc=%d\nRetrying in 5 seconds...\n", mqttClient.state());
             delay(5000);
         }
     }
     Serial.println("Connected to MQTT!");
-    mqttClient.subscribe(MQTT_TOPIC_CONTROL);
+
+    mqttClient.subscribe(MQTT_TOPIC_MODE_COMMAND);
+    mqttClient.subscribe(MQTT_TOPIC_TEMP_COMMAND);
+    mqttClient.subscribe(MQTT_TOPIC_FAN_COMMAND);
 }
 
 void mqttDiscover() {
-    char mqttPayload[256];
-    sprintf(mqttPayload, MQTT_PAYLOAD_DISCOVER, HA_NAME, MQTT_CLIENT_ID, AC_TEMP_MIN, AC_TEMP_MAX, 
-        MQTT_TOPIC_CONTROL, MQTT_TOPIC_STATE);
+    char mqttPayload[MQTT_MAX_PACKET_SIZE];
+
+    sprintf(mqttPayload, MQTT_PAYLOAD_DISCOVER, 
+        HA_NAME, HA_UNIQUE_ID,
+        AC_TEMP_MIN, AC_TEMP_MAX, AC_TEMP_DEFAULT,
+        MQTT_TOPIC_MODE_COMMAND, MQTT_TOPIC_MODE_STATE,
+        MQTT_TOPIC_TEMP_COMMAND, MQTT_TOPIC_TEMP_COMMAND,
+        MQTT_TOPIC_FAN_COMMAND, MQTT_TOPIC_FAN_STATE
+    );
+    Serial.printf("Sending discovery payload %s\n", mqttPayload);
     mqttClient.publish(MQTT_TOPIC_HA_DISCOVER, mqttPayload);
 }
 
-void mqttPublish() {
-    // {
-    //     "power": "off",
-    //     "fan_speed": "high",
-    //     "temperature": 70
-    // }
-}
+// TODO: void mqttPublish(char* topic, uint8_t* payload)
+// TODO: uint8_t* buildIrCode()
+
+// TODO: void sendIrCode(uint8_t* irCode)
+// irSend.sendWhirlpoolAC(data, 21);
+//
+// 0x830601A20000C000000000000063001100803800A9 (168 bits)
+// uint8_t data[21] = {
+//     0x83, 0x06, 0x01, 0xA2, 0x00, 0x00, 0xC0, 0x00, 
+//     0x00, 0x00, 0x00, 0x00, 0x00, 0x63, 0x00, 0x11,
+//     0x00, 0x80, 0x38, 0x00, 0xA9
+// };
 
 /*** main ***/
 
@@ -102,12 +97,10 @@ void setup() {
 
     // init pins
     pinMode(LED_BUILTIN, OUTPUT);
-    pinMode(WIFI_TRIGGER_PIN, INPUT_PULLUP);
 
     // init wifi
     WiFi.mode(WIFI_STA); // esp defaults to STA+AP
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
     Serial.print("Connecting to Wi-Fi");
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
@@ -124,31 +117,23 @@ void setup() {
     mqttClient.setCallback(mqttCallback);
     mqttClient.setKeepAlive(60);
     mqttClient.setSocketTimeout(10);
-    // mqttReconnect();
+    mqttClient.setBufferSize(MQTT_MAX_PACKET_SIZE);
 
-    // home assistant discover
-    // mqttDiscover();
-
+    // home assistant discovery
+    if (USE_MQTT_DISCOVERY) {
+        mqttReconnect();
+        mqttDiscover();
+    }
     Serial.println("Setup done.");
 }
-
-// 0x830601A20000C000000000000063001100803800A9 (168 bits)
-uint8_t data[21] = {
-    0x83, 0x06, 0x01, 0xA2, 0x00, 0x00, 0xC0, 0x00, 
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x63, 0x00, 0x11,
-    0x00, 0x80, 0x38, 0x00, 0xA9
-};
 
 void loop() {
     if (!mqttClient.connected()) {
         mqttReconnect();
-    } else {
-        // TODO: publish timer
-        // mqttPublish();
     }
-    mqttClient.loop();
 
-    // irSend.sendWhirlpoolAC(data, 21);
-    delay(1000);
-    // TODO: delay(50);
+    // TODO: publish mode, fan, temperature to state topics on timer
+
+    mqttClient.loop();
+    delay(50);
 }
