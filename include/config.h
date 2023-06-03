@@ -2,8 +2,14 @@
 
 #include "secrets.h"
 
-#define IR_LED_PIN D2      // IR LED transmit pin
+#define MANUAL_SYNC_PIN D1    // button to manually sync state
+#define IR_LED_PIN D2         // IR LED transmit pin
+#define IR_FEED_LED_PIN D5    // Feedback LED for transmitting IR signal
+
+#define IR_FEEDBACK_MS 75
 #define IR_PAYLOAD_SIZE 21 // whirlpool AC
+
+#define MANUAL_SYNC_DEBOUNCE_MS 300
 
 #define MQTT_PUBLISH_STATE_MS 15000  // interval to broadcast state to smarter_ac_unit/*/state topics
 #define MQTT_MAX_COMMAND_SIZE 8      // limits size of messages for smarter_ac_unit/*/set topics

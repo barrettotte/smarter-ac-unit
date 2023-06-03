@@ -1,6 +1,6 @@
 # smarter-ac-unit
 
-Making my AC unit a little smarter
+Making my AC unit a little smarter with MQTT and Home Assistant
 
 ## Summary
 
