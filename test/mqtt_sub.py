@@ -1,3 +1,5 @@
+# sanity check for MQTT subscriptions used by Home Assistant
+
 import paho.mqtt.client as mqtt
 import random
 
@@ -5,8 +7,6 @@ broker = 'giza.agartha'
 port = 1883
 ttl = 60
 client_id = f'test-mqtt={random.randint(0, 1000)}'
-# topic = 'smarter_ac_unit/temperature/set'
-topic = 'homeassistant/climate/smarter-ac-unit/config'
 
 def connect_mqtt() -> mqtt:
     def on_connect(client, userdata, flags, rc):
@@ -24,7 +24,14 @@ def subscribe(client: mqtt):
     def on_message(client, user_data, msg):
         print(f"Received `{msg.payload.decode()}` from `{msg.topic}` topic")
 
-    client.subscribe(topic)
+    client.subscribe('homeassistant/climate/smarter-ac-unit/config')
+    client.subscribe('smarter_ac_unit/mode/set')
+    client.subscribe('smarter_ac_unit/mode/state')
+    client.subscribe('smarter_ac_unit/temperature/set')
+    client.subscribe('smarter_ac_unit/temperature/state')
+    client.subscribe('smarter_ac_unit/fan/set')
+    client.subscribe('smarter_ac_unit/fan/state')
+
     client.on_message = on_message
 
 def main():

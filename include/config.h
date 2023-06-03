@@ -2,9 +2,11 @@
 
 #include "secrets.h"
 
-#define USE_MQTT_DISCOVERY 1
+#define IR_LED_PIN D2      // IR LED transmit pin
+#define IR_PAYLOAD_SIZE 21 // whirlpool AC
 
-#define IR_LED_PIN D2 // IR LED transmit pin
+#define MQTT_PUBLISH_STATE_MS 15000  // interval to broadcast state to smarter_ac_unit/*/state topics
+#define MQTT_MAX_COMMAND_SIZE 8      // limits size of messages for smarter_ac_unit/*/set topics
 
 #define AC_TEMP_MAX 86
 #define AC_TEMP_MIN 60
@@ -25,6 +27,9 @@ const char* MQTT_TOPIC_TEMP_STATE = "smarter_ac_unit/temperature/state";
 const char* MQTT_TOPIC_FAN_COMMAND = "smarter_ac_unit/fan/set";
 const char* MQTT_TOPIC_FAN_STATE = "smarter_ac_unit/fan/state";
 
+#define USE_MQTT_DISCOVERY 1 // set 0 to disable discovery for manual setup in Home Assistant
+
+// Home Assistant discovery payload
 const char* MQTT_PAYLOAD_DISCOVER = ""\
     "{"\
         "\"name\":\"%s\","\
@@ -37,6 +42,7 @@ const char* MQTT_PAYLOAD_DISCOVER = ""\
         "\"temperature_unit\":\"F\","\
         "\"temp_step\":1,"\
         "\"optimistic\":true,"\
+        "\"qos\":0,"\
         "\"mode_command_topic\":\"%s\","\
         "\"mode_command_template\":\"{{ value if value=='off' else 'on' }}\","\
         "\"mode_state_topic\":\"%s\","\
