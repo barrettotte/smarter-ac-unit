@@ -8,10 +8,25 @@
 #define MQTT_MAX_PACKET_SIZE 2048 // redefined from 256 in PubSubClient
 // Note: this causes a compiler warning, but I couldn't get anything else to work.
 
+// lookup table for temperature encoding
+// there's definitely a pattern to this, but I think a lookup table is easier to grok
+const uint8_t temperatureLookup[] = {
+    0xC, 0xD, 0xE, 0xF, 0x8, 0x9, 0xA, 0xB, // 60-67
+    0x4, 0x5, 0x6, 0x7, 0x0, 0x1, 0x2, 0x3, // 68-75
+    0xC, 0xD, 0xE, 0xF, 0x8, 0x9, 0xA, 0xB, // 76-83
+    0x4, 0x5, 0x6                           // 84-86
+};
+
 void mqttCallback(char* topic, byte* payload, unsigned int payloadLength);
 void mqttReconnect();
 void mqttDiscover();
 void mqttPublishState();
+
+enum AcCommand {
+    CMD_TEMP_CHANGE = 0x02,
+    CMD_FAN_TOGGLE = 0x11,
+    CMD_POWER_TOGGLE = 0x25,
+};
 
 struct EzTimer {
     bool trigger;
@@ -72,7 +87,7 @@ void initMqtt() {
     mqttClient.setBufferSize(MQTT_MAX_PACKET_SIZE);
 
     // home assistant discovery
-    if (USE_MQTT_DISCOVERY) {
+    if (USE_HA_MQTT_DISCOVERY) {
         mqttReconnect();
         mqttDiscover();
     }
@@ -80,34 +95,94 @@ void initMqtt() {
 
 /*** infrared ***/
 
-// encode state to infrared code
-void buildIrCode(uint8_t* code) {
-    // 0x830601A20000C000000000000063001100803800A9 (168 bits)
-    // uint8_t data[21] = {
-    //     0x83, 0x06, 0x01, 0xA2, 0x00, 0x00, 0xC0, 0x00, 
-    //     0x00, 0x00, 0x00, 0x00, 0x00, 0x63, 0x00, 0x11,
-    //     0x00, 0x80, 0x38, 0x00, 0xA9
-    // };
-    // code[0] = 0xDE;
-    // code[1] = 0xAD;
-    // code[2] = 0xBE;
-    // code[3] = 0xEF;
+// encode state to infrared code based on command
+void buildIrCode(uint8_t* code, AcCommand cmd) {
+    /*
+        Example infrared code (via ir-sniffer)
 
+        Protocol  : WHIRLPOOL_AC
+        Code      : 0x830601A20000C000000000000063001100803800A9 (168 Bits = 21 Bytes)
+        Mesg Desc.: Model: 2 (DG11J191), Power Toggle: Off, Mode: 2 (Cool), 
+                Temp: 26C, Fan: 1 (High), Swing: Off, Light: On, 
+                Clock: 00:00, On Timer: Off, Off Timer: Off, 
+                Sleep: Off, Super: Off, Command: 17 (Fan)
+    */
+    bool lowTemp = (state.temperature >= 60 && state.temperature <= 75);
+
+    code[0] = 0x83; // manufacturer/model ?
+    code[1] = 0x06; // manufacturer/model ?
+    code[2] = state.speed == 0 ? 0x03 : 0x01; // fan speed
+
+    if (lowTemp) {
+        code[3] = state.temperature - 60; // 60=0x0, 65=0x5, 70=0xA, 75=0xF
+    } else {
+        code[3] = state.temperature - 76; // 76=0x0, 80=0x4, 86=0xA
+    }
+    code[3] <<= 4;
+    code[3] |= 0x2; // cool mode; other modes not supported
     
+    // some constant 0x0000C000
+    code[4] = 0x00;
+    code[5] = 0x00;
+    code[6] = 0xC0;
+    code[7] = 0x00;
+
+    code[8] = 0x0; // swing: 0=off; not supported
+    code[8] <<= 4;
+    code[8] |= 0x0; // low nibble (constant zero)
+
+    // some constant 0x00000000
+    code[9] = 0x00;
+    code[10] = 0x00;
+    code[11] = 0x00;
+    code[12] = 0x00;
+
+    code[13] = temperatureLookup[state.temperature - 60];
+    code[13] <<= 4;
+    code[13] |= state.speed == 0 ? 0x1 : 0x3;
+
+    code[14] = 0x00; // constant
+    code[15] = cmd;
+
+    code[16] = 0x00; // constant
+    code[17] = lowTemp ? 0x00 : 0x80;
+
+    code[18] = (cmd == CMD_TEMP_CHANGE || state.mode == 1) ? 0x38 : 0x28;
+    code[19] = 0x00;
+
+    if (cmd == CMD_TEMP_CHANGE) {
+        code[20] = lowTemp ? 0x3A : 0xBA;
+    } else if (cmd == CMD_FAN_TOGGLE) {
+        code[20] = lowTemp ? 0x29 : 0xA9;
+    } else if (state.mode == 0) {
+        code[20] = lowTemp ? 0x0D : 0x8D;
+    } else {
+        code[20] = lowTemp ? 0x1D : 0x9D;
+    }
+}
+
+// trigger LED to fire to signal IR is being transmitted
+void triggerIrFeedback() {
+    if (!irFeedbackTimer.trigger) {
+        irFeedbackTimer.trigger = true;
+        digitalWrite(IR_FEED_LED_PIN, HIGH);
+    }
 }
 
 // send infrared code to AC unit
-void sendIrCode() {
+void sendIrCode(AcCommand cmd) {
     uint8_t code[IR_PAYLOAD_SIZE];
     memset(code, 0, IR_PAYLOAD_SIZE);
-    buildIrCode(code);
+    buildIrCode(code, cmd);
 
     Serial.print("Sending IR code -> 0x");
     for (uint8_t i = 0; i < IR_PAYLOAD_SIZE; i++) {
         Serial.printf("%02X", code[i]);
     }
     Serial.println();
-    // irSend.sendWhirlpoolAC(data, 21);
+
+    triggerIrFeedback();
+    irSend.sendWhirlpoolAC(code, IR_PAYLOAD_SIZE);
 }
 
 /*** AC state change ***/
@@ -120,7 +195,7 @@ void printState() {
 void manualSync() {
     Serial.println("Manually syncing state...");
     printState();
-    sendIrCode();
+    sendIrCode(CMD_TEMP_CHANGE);
     mqttPublishState();
 }
 
@@ -141,7 +216,7 @@ void setAcMode(char* message) {
     if (prevMode != state.mode) {
         Serial.printf("Set mode to %d\n", state.mode);
         printState();
-        sendIrCode();
+        sendIrCode(CMD_POWER_TOGGLE);
     }
 }
 
@@ -163,7 +238,7 @@ void setAcTemperature(char* message) {
     if (prevTemp != state.temperature) {
         Serial.printf("Set temperature to %d\n", state.temperature);
         printState();
-        sendIrCode();
+        sendIrCode(CMD_TEMP_CHANGE);
     }
 }
 
@@ -184,11 +259,11 @@ void setAcFanSpeed(char* message) {
     if (prevSpeed != state.speed) {
         Serial.printf("Set fan speed to %d\n", state.speed);
         printState();
-        sendIrCode();
+        sendIrCode(CMD_FAN_TOGGLE);
     }
 }
 
-/*** mqtt ***/
+/*** MQTT ***/
 
 // handle message from subscribed MQTT topics that change state - smarter_ac_unit/*/set
 void mqttCallback(char* topic, byte* payload, unsigned int payloadLength) {    
@@ -240,11 +315,12 @@ void mqttReconnect() {
     mqttClient.subscribe(MQTT_TOPIC_FAN_COMMAND);
 }
 
-// publish discovery message for Home Assistant
+// publish discovery message for Home Assistant to auto-configure entity
 void mqttDiscover() {
     char mqttPayload[MQTT_MAX_PACKET_SIZE];
 
-    sprintf(mqttPayload, MQTT_PAYLOAD_DISCOVER, 
+    sprintf(
+        mqttPayload,HA_MQTT_DISCOVERY, 
         HA_NAME, HA_UNIQUE_ID,
         AC_TEMP_MIN, AC_TEMP_MAX, AC_TEMP_DEFAULT,
         MQTT_TOPIC_MODE_COMMAND, MQTT_TOPIC_MODE_STATE,
@@ -277,7 +353,7 @@ void mqttPublishState() {
 
 void setup() {
     pinMode(LED_BUILTIN, OUTPUT);
-    digitalWrite(LED_BUILTIN, HIGH);
+    digitalWrite(LED_BUILTIN, HIGH); // signal init in progress
     pinMode(IR_FEED_LED_PIN, OUTPUT);
     pinMode(MANUAL_SYNC_PIN, INPUT_PULLUP);
 
@@ -291,7 +367,7 @@ void setup() {
     state.speed = 0;
     state.temperature = AC_TEMP_DEFAULT;
 
-    digitalWrite(LED_BUILTIN, LOW);
+    digitalWrite(LED_BUILTIN, LOW); // signal init done
     Serial.println("Setup done.");
 }
 
@@ -312,11 +388,7 @@ void loop() {
     manualSyncTimer.currentMs = millis();
     if (((manualSyncTimer.currentMs - manualSyncTimer.prevMs) > MANUAL_SYNC_DEBOUNCE_MS) && digitalRead(MANUAL_SYNC_PIN) == LOW) {
         manualSyncTimer.prevMs = manualSyncTimer.currentMs;
-
-        if (!irFeedbackTimer.trigger) {
-            irFeedbackTimer.trigger = true;
-            digitalWrite(IR_FEED_LED_PIN, HIGH);
-        }
+        triggerIrFeedback();
         manualSync();
     }
 

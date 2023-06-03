@@ -128,6 +128,8 @@ Some of the mystery constants are probably part of this.
 |         | 8D                              | cool mode, high/low fan, Temperature: 76F-86F, power off                  |
 |         | 1D                              | cool mode, high/low fan, Temperature: 60F-75F, power on                   |
 |         | 9D                              | cool mode, high/low fan, Temperature: 76F-86F, power on                   |
+|         | 29                              | cool mode, high/low fan, Temperature: 60F-75F, fan toggle                 |
+|         | A9                              | cool mode, high/low fan, Temperature: 76F-86F, fan toggle                 |
 
 ## References
 
