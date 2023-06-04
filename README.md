@@ -4,7 +4,7 @@ Making my AC unit a little smarter with MQTT and Home Assistant
 
 ## Summary
 
-Uses Home Assistant, MQTT, and infrared codes to control parts of my AC unit that I care about. 
+Uses Home Assistant, MQTT, and an infrared transmitter to control parts of my AC unit that I care about. 
 It can do the following:
 
 - Set temperature between 60°F-86°F, defaulting to 70°F
@@ -16,6 +16,29 @@ It can do the following:
 I also added a manual sync button to my circuit to allow resyncing both Home Assistant and the AC unit
 back to the state stored on the ESP8266.
 This solves any rare problems where states get out of sync and start behaving strangely.
+
+## Hardware
+
+TODO: parts list
+
+Parts:
+
+- 1x ESP8266
+- 1x 2N3904 NPN transistor
+- 1x IR LED
+- 1x Red LED
+- 1x 10KΩ resistor
+- 1x 47Ω resistor
+- 1x 470Ω resistor
+- 1x pushbutton
+
+![images/circuit.png](images/circuit.png)
+
+TODO: protoboard image
+
+TODO: fusion 360 image
+
+TODO: final build image
 
 ## Infrastructure
 
