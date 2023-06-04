@@ -11,7 +11,7 @@ It can do the following:
 - Toggle power - off, on (cool mode)
 - Change fan speed - low, high
 
-TODO: home assistant image
+![images/home-assistant.png](images/home-assistant.png)
 
 I also added a manual sync button to my circuit to allow resyncing both Home Assistant and the AC unit
 back to the state stored on the ESP8266.
