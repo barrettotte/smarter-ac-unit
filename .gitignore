@@ -3,6 +3,8 @@
 
 include/secrets.h
 
+*.gcode
+
 ### kicad
 
 # For PCBs designed using KiCad: https://www.kicad.org/

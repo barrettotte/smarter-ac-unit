@@ -825,7 +825,7 @@
     (property "Reference" "R2" (id 0) (at 172.72 63.4999 0)
       (effects (font (size 1.27 1.27)) (justify left))
     )
-    (property "Value" "470" (id 1) (at 172.72 66.0399 0)
+    (property "Value" "47" (id 1) (at 172.72 66.0399 0)
       (effects (font (size 1.27 1.27)) (justify left))
     )
     (property "Footprint" "" (id 2) (at 171.196 65.024 90)
@@ -1037,7 +1037,7 @@
       (reference "R1") (unit 1) (value "10K") (footprint "")
     )
     (path "/5efd316f-bac9-4d4b-b474-ab6afd0f34ed"
-      (reference "R2") (unit 1) (value "470") (footprint "")
+      (reference "R2") (unit 1) (value "47") (footprint "")
     )
     (path "/15a41ed9-4820-472d-a12a-683e3cb1054a"
       (reference "R3") (unit 1) (value "470") (footprint "")
