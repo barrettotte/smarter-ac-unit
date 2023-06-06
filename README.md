@@ -17,7 +17,9 @@ I also added a manual sync button to my circuit to allow resyncing both Home Ass
 back to the state stored on the ESP8266.
 This solves any rare problems where states get out of sync and start behaving strangely.
 
-![images/final-build.jpg](images/final-build.jpg)
+<a href="images/final-build.jpg">
+  <img src="images/final-build.jpg" alt="final build" width="75%" height="75%"/>
+</a>
 
 ## Hardware
 
@@ -35,7 +37,9 @@ This solves any rare problems where states get out of sync and start behaving st
 
 ![images/circuit.png](images/circuit.png)
 
-![images/protoboard.jpg](images/protoboard.jpg)
+<a href="images/protoboard.jpg">
+  <img src="images/protoboard.jpg" alt="protoboard" width="75%" height="75%"/>
+</a>
 
 ## Infrastructure
 
