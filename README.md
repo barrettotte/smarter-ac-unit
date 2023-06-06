@@ -5,7 +5,9 @@ Making my AC unit a little smarter with MQTT and Home Assistant
 ## Summary
 
 Uses Home Assistant, MQTT, and an infrared transmitter to control parts of my AC unit that I care about. 
-It can do the following:
+This is only meant to work with my AC unit model, [LG LP1017WSR](https://www.lg.com/us/air-conditioners/lg-LP1017WSR-portable-air-conditioner).
+
+Features:
 
 - Set temperature between 60°F-86°F, defaulting to 70°F
 - Toggle power - off, on (cool mode)
