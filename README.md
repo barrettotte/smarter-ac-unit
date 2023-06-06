@@ -17,11 +17,11 @@ I also added a manual sync button to my circuit to allow resyncing both Home Ass
 back to the state stored on the ESP8266.
 This solves any rare problems where states get out of sync and start behaving strangely.
 
+![images/final-build.jpg](images/final-build.jpg)
+
 ## Hardware
 
-TODO: parts list
-
-Parts:
+### Parts List
 
 - 1x ESP8266
 - 1x 2N3904 NPN transistor
@@ -31,14 +31,11 @@ Parts:
 - 1x 47Ω resistor
 - 1x 470Ω resistor
 - 1x pushbutton
+- 4x 2.5x8mm hex button screws
 
 ![images/circuit.png](images/circuit.png)
 
-TODO: protoboard image
-
-TODO: fusion 360 image
-
-TODO: final build image
+![images/protoboard.jpg](images/protoboard.jpg)
 
 ## Infrastructure
 
@@ -143,7 +140,7 @@ Mesg Desc.: Model: 2 (DG11J191), Power Toggle: Off, Mode: 2 (Cool),
 
 Used [ir-sniffer](https://github.com/barrettotte/ir-sniffer) to manually gather all relevant IR codes
 of button presses and states for my AC unit.
-IR codes can be found in [ir-codes.txt](ir-codes.txt), these codes were used to create the table below.
+IR codes can be found in [docs/ir-codes.txt](docs/ir-codes.txt), these codes were used to create the table below.
 
 Note: I'm only looking at cool mode...other modes may effect the values below.
 Also, not figuring out sleep and timer...I don't use these at all.
